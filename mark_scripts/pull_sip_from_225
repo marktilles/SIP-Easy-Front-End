@@ -1,0 +1,17 @@
+#!/bin/bash
+
+# Define remote and local paths
+REMOTE_USER=pi
+REMOTE_HOST=192.168.4.225
+REMOTE_DIR2="/home/pi/SIP/"
+LOCAL_DIR2="/Users/markt/Desktop/Git/Lea-SIP-Frontend"
+
+# Create the local target directory if it doesn't exist
+mkdir -p "$LOCAL_DIR2"
+
+# Use scp with -r for recursive copy and -p to preserve timestamps
+
+scp -r -p "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR2}"* "$LOCAL_DIR2"
+# Optional: Print confirmation
+echo "Files pulled from ${REMOTE_HOST}:${REMOTE_DIR2} to ${LOCAL_DIR2}"
+

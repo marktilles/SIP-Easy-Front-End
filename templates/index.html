@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta content="width=device-width, initial-scale=0.3" name="viewport">
+
+<!-- 📱 PWA Support -->
+<link rel="manifest" href="/static/manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Sprinklers">
+<link rel="apple-touch-icon" href="{{ url_for('static', filename='icon-192.png') }}">
+
+<script>
+// Register service worker for PWA
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/static/service-worker.js")
+    .then(() => console.log("✅ Service Worker registered"))
+    .catch(err => console.error("❌ Service Worker registration failed:", err));
+}
+</script>
+
+
+<link href="{{ url_for('static', filename='favicon.ico') }}" rel="icon" type="image/x-icon"/>
+<link href="{{ url_for('static', filename='icon-192.png') }}" rel="apple-touch-icon"/>
+
+<title>{{ title }}</title>
+
+<style>
+    body { font-family: sans-serif; text-align: center; margin-top: 30px; }
+    img.hero {
+      max-width: 75vw;
+      height: auto;
+      margin-bottom: 20px;
+      border-radius: 12px;
+    }
+    .zone-btn, .duration-btn, .stop-btn, .start-custom {
+      border-radius: 25px;
+      padding: 10px 20px;
+      margin: 5px;
+      font-size: 40px;
+      cursor: pointer;
+    }
+    .zone-btn { background-color: grey; color: white; }
+    .zone-btn.selected { border: 8px solid red; background-color: grey; color: white; }
+    .zone-btn.active { background-color: green; color: white; }
+    .zone-btn.selected.active { border: 8px solid red; }
+    .duration-btn { background-color: lightblue; color: black }
+    .duration-btn.active { background-color: yellow; color: black; }
+    .start-custom { background-color: lightgrey; color: black; }
+    .stop-btn { background-color: red; color: white; font-weight: bold; }
+
+   #sip-status-label {
+     margin-top: 10px;
+     font-style: italic;
+     color: green;
+     font-size: 40px;
+     line-height: 1.4;
+   }
+
+   #sip-status-label a {
+     font-size: inherit;
+     font-style: inherit;
+     color: inherit;
+     text-decoration: none;
+   }
+  
+/* Double size for Misters button */
+/*.misters-boost {
+  font-size: 80px !important;
+  padding: 20px 40px !important;
+  border-radius: 40px !important;
+}
+*/
+
+/* SIP not running banner */
+@keyframes sipBlink { 0%{opacity:1;} 50%{opacity:0.25;} 100%{opacity:1;} }
+#sip-alert-banner {
+  display:none;
+  position:fixed;
+  top:0;
+  left:0;
+  right:0;
+  z-index:9999;
+  background:black;
+  color:red;
+  font-weight:bold;
+  text-align:center;
+  padding:16px;
+  font-size:60px;
+  animation:sipBlink 1s infinite;
+}
+body.sip-banner-offset { padding-top: 100px; }
+
+.start-custom.big-start {
+  font-size: 40px !important;
+  padding: 10px 20px !important;
+}
+</style>
+</head>
+<div id="sipToggleContainer" style="text-align: center; margin-top: 40px; display: none;">
+<div id="sip-status-label"></div>
+<button id="sipToggleBtn" style="
+            padding: 8px 16px;
+            font-size: 40px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            background-color: #eee;
+            cursor: pointer;
+            transition: background-color 0.2s ease;">
+    Checking SIP Status...
+  </button>
+</div>
+<div id="customAlert" style="display:none; position:fixed; top:30%; left:50%; transform:translate(-50%, -30%); background:#fff; padding:24px; border-radius:12px; box-shadow:0 0 20px rgba(0,0,0,0.3); z-index:1000; width:360px; text-align:center;">
+<h3 id="alertTitle" style="margin-top:0; font-size: 36px;">Notice</h3>
+<p id="alertMessage" style="font-size: 36px; margin: 16px 0;">Message goes here</p>
+<button onclick="closeAlert()" style="margin-top: 16px; padding:10px 20px; font-size: 36px; border-radius: 8px;">OK</button>
+</div>
+<div id="alertOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.4); z-index:999;"></div>
+<body><div id="sip-alert-banner">Sprinklers in Manual Mode</div>
+<!-- Image at the top -->
+<img alt="" class="hero" src="../static/IMG_5040.jpg"/>
+<br/>
+<br/>
+<br/>
+<div id="zone-buttons">
+  {% for id, zone in zones.items() %}
+    {% if zone.nickname != "-" and zone.nickname != "MASTER" %}
+      <button class="zone-btn" data-zone="{{ id }}">{{ zone.nickname }}</button>
+    {% endif %}
+  {% endfor %}
+</div>
+<!-- 👇 Added extra linefeed here -->
+<br/>
+<div>
+<button class="duration-btn" data-min="8">8 min</button>
+<button class="duration-btn" data-min="10">10 min</button>
+<button class="duration-btn" data-min="15">15 min</button>
+</div>
+<div>
+
+<br/>
+<font size="40">or
+<br/>
+
+<input id="custom-min" max="999" placeholder="Min" style="width: 5ch; text-align: center; font-size: 40px; border-radius: 25px; padding: 10px 20px; margin: 5px;" type="number" value="{{ default_duration }}"/>
+<button class="start-custom big-start big-start" style="margin-top: 20px; margin-top: 20px;">Duration</button>
+</div>
+
+<br/><br/>
+<font size="40">Active zones:
+<span id="running-count"></span>
+<div id="timers"></div>
+</font>
+<br/>
+
+<button class="stop-btn" id="stop-all-btn" onclick="stopAll()" style="display: none;">Stop all Zones</button>
+<!-- put this where the links used to be -->
+
+
+<!-- SIP options with overlay trigger -->
+<div id="sip-options" style="display:none;font-size: 40px;">
+  <br/>
+  <a href="#" onclick="openOverlay('{{ url_for('view_log') }}'); return false;">View Log Table</a>
+  <br/><br/>
+  <a href="#" onclick="openOverlay('{{ url_for('view_schedules') }}'); return false;">View Schedules</a>
+</div>
+
+<!-- Overlay container -->
+<div id="overlay" style="
+    display:none;
+    position:fixed;
+    top:0;
+    left:0;
+    width:100%;
+    height:100%;
+    background-color:white;
+    z-index:10000;
+    overflow:auto;
+">
+  <button onclick="closeOverlay()" style="
+      position:absolute;
+      top:10px;
+      right:10px;
+      font-size:40px;
+      padding:10px 20px;
+      border:none;
+      background:red;
+      color:white;
+      border-radius:8px;
+      cursor:pointer;
+      z-index:10001;
+  ">X</button>
+  <iframe id="overlay-frame" src="" style="
+      width:100%;
+      height:100%;
+      border:none;
+      margin-top:0;
+  "></iframe>
+</div>
+
+
+
+
+<footer>
+<br/>
+<br/>
+<font size="4">{{ title }} v{{ version }}<br/>{{ server_ip }}</font>
+</footer>
+
+<div id="upload-container" style="margin-top: 60px; text-align: center; display: none;">
+<label style="display: inline-block; font-size: 30px; padding: 12px 20px; border-radius: 10px; background-color: #eee; cursor: pointer;">
+    Choose Photo
+    <input accept="image/*" id="photoInput" style="display: none;" type="file"/>
+</label>
+<br/><br/>
+<button onclick="uploadPhoto()" style="font-size: 30px; padding: 10px 20px; border-radius: 10px;">Upload Background</button>
+</div>
+</body>
+</html>
+
+
+<script>
+
+function openOverlay(url) {
+  const overlay = document.getElementById('overlay');
+  const frame = document.getElementById('overlay-frame');
+  frame.src = url;      // load the log or schedule page
+  overlay.style.display = 'block';
+}
+
+function closeOverlay() {
+  const overlay = document.getElementById('overlay');
+  const frame = document.getElementById('overlay-frame');
+  frame.src = '';       // unload the iframe
+  overlay.style.display = 'none';
+}
+
+function uploadPhoto() {
+  const input = document.getElementById('photoInput');
+  if (!input.files.length) {
+    alert("Please select a photo.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('photo', input.files[0]);
+
+  fetch('/upload_background', {
+    method: 'POST',
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.success) {
+      alert("Photo uploaded successfully. Refreshing...");
+      setTimeout(() => location.reload(), 1000);
+    } else {
+      alert("Upload failed: " + data.error);
+    }
+  })
+  .catch(() => alert("Upload error."));
+}
+
+
+
+function showAlert(title, message) {
+  document.getElementById('alertTitle').textContent = title;
+  document.getElementById('alertMessage').textContent = message;
+  document.getElementById('customAlert').style.display = 'block';
+  document.getElementById('alertOverlay').style.display = 'block';
+}
+
+function closeAlert() {
+  document.getElementById('customAlert').style.display = 'none';
+  document.getElementById('alertOverlay').style.display = 'none';
+}
+
+
+  async function updateSIPButtonConditional() {
+    try {
+      const zoneRes = await fetch('/status');
+      const zones = await zoneRes.json();
+
+      const anyZoneRunning = Object.values(zones).some(zone => zone.remaining > 0);
+      const container = document.getElementById('sipToggleContainer');
+      const btn = document.getElementById('sipToggleBtn');
+
+      if (anyZoneRunning) {
+        container.style.display = 'none';
+        return;
+      }
+
+      const sipRes = await fetch('/sip_status');
+      const sip = await sipRes.json();
+
+      if (sip.running) {
+        btn.textContent = 'Go Manual Mode';
+        btn.style.backgroundColor = '#f8d7da';
+        btn.style.borderColor = '#f5c6cb';
+      } else {
+        btn.textContent = 'Go Automatic Mode'
+        btn.style.backgroundColor = '#d4edda';
+        btn.style.borderColor = '#c3e6cb';
+      }
+
+      container.style.display = 'block';
+    } catch (err) {
+      console.error('Failed to update SIP button:', err);
+    }
+  }
+
+  document.getElementById('sipToggleBtn').addEventListener('click', async () => {
+    try {
+      const res = await fetch('/toggle_sip', { method: 'POST' });
+      const data = await res.json();
+      if (data.success) {
+        updateSIPButtonConditional();
+      } else {
+        alert('Failed to toggle SIP service: ' + (data.error || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Error communicating with server.');
+    }
+  });
+
+  // Initial update
+  updateSIPButtonConditional();
+
+  // Auto-refresh every 5 seconds
+  setInterval(updateSIPButtonConditional, 3000);
+
+
+function verifySIPAccess() {
+  const pass = prompt("Enter SIP password (hint: Password):");
+  if (pass === "Password") {
+    const url = "http://{{ server_ip }}";  // Ensure this renders as a proper IP like 192.168.4.225
+    window.open(url, "_self");  // Open in the same tab
+    /*window.open(url, "_blank");*/
+  } else if (pass !== null) {
+    alert("Incorrect password.");
+  }
+}
+
+
+
+function checkSIPStatusAndToggleButton() {
+  Promise.all([
+    fetch("/sip_status").then(res => res.json()),
+    fetch("/active_zones").then(res => res.json())
+  ])
+  .then(([sip, zones]) => {
+    const label   = document.getElementById("sip-status-label");
+    const options = document.getElementById("sip-options");   // <— NEW
+
+    if (sip.running) {
+      // show the links
+      options.style.display = "block";
+
+      // existing code that builds the green “Enabled” label
+      let zoneText = "";
+      if (zones.active && zones.zones && zones.zones.length > 0) {
+      const names = zones.zones.map(id => zones.nicknames?.[id] || `Zone ${id}`);
+      zoneText = "<br><font color='red'>and currently running zone(s): " +
+             names.join(", ");
+      }
+      label.innerHTML =
+        `<a href="#" onclick="verifySIPAccess()"
+            style="color: green; text-decoration: none;">
+            Automatic Sprinkler: Enabled${zoneText}
+         </a>`;
+    } else {
+      // hide the links
+      options.style.display = "none";
+      label.textContent = "";   // keep existing behaviour
+    }
+
+   const uploadDiv = document.getElementById("upload-container");
+   if (uploadDiv) {
+     uploadDiv.style.display = sip.running ? "none" : "block";
+}
+
+
+  })
+  .catch(err => console.error("Failed to update SIP/zone status:", err));
+}
+
+// Call once on load
+window.addEventListener('DOMContentLoaded', () => {
+    checkSIPStatusAndToggleButton();
+    // Automatically select the zone if only one is available
+    const zoneButtons = document.querySelectorAll('.zone-btn');
+    if (zoneButtons.length === 1) {
+      selectedZone = zoneButtons[0].dataset.zone;
+      zoneButtons[0].classList.add('selected');
+  }
+});
+
+// Also check periodically (every 10 seconds)
+setInterval(checkSIPStatusAndToggleButton, 3000);
+
+function restartAutoMode() {
+    fetch("/restart_auto_mode", {
+        method: "POST"
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert("Scheduler restarted successfully.");
+            // Wait a moment and reload the page to reflect SIP status
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            alert("Failed to restart scheduler: " + data.error);
+        }
+    });
+}
+
+function restartAutoMode() {
+    fetch("/restart_auto_mode", {
+        method: "POST"
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Wait a moment to ensure SIP restarts and zones reset
+            setTimeout(() => {
+                location.reload();  // Refresh after all backend actions are complete
+            }, 1000);
+        } else {
+            alert("Failed to restart scheduler: " + data.error);
+        }
+    });
+}
+
+let selectedZone = null;
+
+function updateZoneButtons(status) {
+  document.querySelectorAll('.zone-btn').forEach(btn => {
+    let zid = btn.dataset.zone;
+    btn.classList.remove('active', 'selected', 'selected-active');
+    if (status[zid] && status[zid].remaining > 0) {
+      btn.classList.add('active');
+    }
+    if (zid == selectedZone) {
+      btn.classList.add('selected');
+      if (status[zid] && status[zid].remaining > 0) {
+        btn.classList.add('active');
+        btn.classList.add('selected');
+      }
+    }
+  });
+}
+
+document.querySelectorAll('.zone-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    selectedZone = btn.dataset.zone;
+    updateZoneButtons(window.currentStatus || {});
+  });
+});
+
+document.querySelectorAll('.duration-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!selectedZone) return showAlert("Missing Zone Selection", "Please select a zone before starting a timer.");
+    let minutes = parseInt(btn.dataset.min);
+    btn.classList.add("active");
+    setTimeout(() => btn.classList.remove("active"), 1000);
+    fetch('/start_zone', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ zone: selectedZone, duration: minutes * 60 })
+    });
+  });
+});
+
+document.querySelector('.start-custom').addEventListener('click', () => {
+  let minutes = parseInt(document.getElementById('custom-min').value);
+  if (!selectedZone) return showAlert("Missing Zone Selection", "Please select a zone before starting a timer.");
+  fetch('/start_zone', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ zone: selectedZone, duration: minutes * 60 })
+  });
+});
+
+function stopAll() {
+  fetch('/stop_all', { method: 'POST' });
+}
+
+function updateTimers() {
+  fetch('/status').then(res => res.json()).then(data => {
+    window.currentStatus = data;
+    updateZoneButtons(data);
+    let html = "";
+    let anyZoneRunning = false;
+
+    for (let id in data) {
+      if (data[id].remaining > 0) {
+        let m = Math.floor(data[id].remaining / 60);
+        let s = data[id].remaining % 60;
+        html += `${data[id].nickname} — ${m}m ${s}s<br>`;
+        anyZoneRunning = true;
+      }
+    }
+
+    document.getElementById("timers").innerHTML = html;
+
+    // NEW: Only control the STOP ALL button now
+    const stopBtn = document.getElementById("stop-all-btn");
+    if (stopBtn) {
+      stopBtn.style.display = anyZoneRunning ? "inline-block" : "none";
+    }
+
+    // You can optionally remove the sprinkler GIF entirely
+    // Or leave it here as a nice visual if wanted
+    const gif = document.getElementById("sprinkler-gif");
+    if (gif) {
+      gif.style.display = anyZoneRunning ? "inline-block" : "none";
+    }
+
+    document.getElementById("running-count").textContent = anyZoneRunning ? "" : "0";
+  });
+}
+
+
+setInterval(updateTimers, 1000);
+updateTimers();
+
+function setSipBanner(shouldShow){
+  var banner = document.getElementById('sip-alert-banner');
+  if(!banner) return;
+  if(shouldShow){
+    banner.style.display = 'block';
+    document.body.classList.add('sip-banner-offset');
+  } else {
+    banner.style.display = 'none';
+    document.body.classList.remove('sip-banner-offset');
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  function refreshSipBanner(){
+    fetch('/sip_status', {cache:'no-store'})
+      .then(r => r.json())
+      .then(sip => setSipBanner(!sip.running))
+      .catch(()=>{});
+  }
+  refreshSipBanner();
+  setInterval(refreshSipBanner, 5000);
+});
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  const mistersBtn = Array.from(document.querySelectorAll('.zone-btn'))
+    .find(btn => btn.textContent.trim().toLowerCase() === 'misters');
+
+  if (mistersBtn) {
+    mistersBtn.addEventListener('click', () => {
+      const zoneId = mistersBtn.dataset.zone;
+      if (!zoneId) {
+        console.error('Misters button missing data-zone attribute');
+        return;
+      }
+      fetch('/start_zone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zone: parseInt(zoneId, 10), duration: 1800 })
+      })
+      .then(res => res.json())
+      .then(json => {
+        if (!json.success) {
+          console.error('Failed to start Misters:', json.error || json);
+        } else {
+          console.log('Misters started for 30 seconds');
+        }
+      })
+      .catch(err => console.error('Error starting Misters:', err));
+    });
+  }
+});
+</script>

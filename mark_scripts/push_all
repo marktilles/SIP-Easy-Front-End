@@ -1,0 +1,10 @@
+#!/bin/bash
+
+#./push_to_225
+#./push_to_226
+#./push_to_227
+
+./push_to_all 192.168.4.225
+./push_to_all 192.168.4.226
+./push_to_all 192.168.4.227
+

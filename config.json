@@ -1,0 +1,18 @@
+{
+  "title": "Backyard",
+  "version": "1.1",
+  "default_duration_min": 20,
+  "server_ip": "192.168.4.225",
+
+  "zones": {
+    "1": { "gpio": 17, "nickname": "Buddha Garden" },
+    "2": { "gpio": 18, "nickname": "Pine Hil" },
+    "3": { "gpio": 27, "nickname": "Garden View" },
+    "4": { "gpio": 22, "nickname": "-" },
+    "5": { "gpio": 23, "nickname": "-" },
+    "6": { "gpio": 24, "nickname": "-" },
+    "7": { "gpio": 25, "nickname": "-" },
+    "8": { "gpio": 4,  "nickname": "MASTER" }
+  }
+}
+

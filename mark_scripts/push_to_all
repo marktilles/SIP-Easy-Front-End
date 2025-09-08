@@ -1,0 +1,58 @@
+#!/bin/bash
+
+# Usage: ./push.sh <IP_ADDRESS>
+if [ -z "$1" ]; then
+  echo "❌ Error: No IP address provided."
+  echo "👉 Usage: $0 <IP_ADDRESS>"
+  exit 1
+fi
+
+# Input IP from argument
+REMOTE_USER=pi
+REMOTE_HOST=$1
+
+# Define local and remote paths
+SCRIPT_DIR="/home/pi/mark_scripts/"
+MARK_SCRIPT="/Users/markt/Desktop/Git/Lea-SIP-Frontend/mark_scripts/sip_monitor.py"
+MARK_SCRIPT2="/Users/markt/Desktop/Git/Lea-SIP-Frontend/mark_scripts/shutdown_button.py"
+MARK_SCRIPT3="/Users/markt/Desktop/Git/Lea-SIP-Frontend/mark_scripts/check_and_curl_SIP.sh"
+
+LOCAL_FILE="/Users/markt/Desktop/Git/Lea-SIP-Frontend/sprinklers.py"
+REMOTE_DIR1="/home/pi/sprinklers/"
+
+LOCAL_DIR2="/Users/markt/Desktop/Git/Lea-SIP-Frontend/static"
+REMOTE_DIR2="/home/pi/sprinklers/static"
+
+LOCAL_DIR3="/Users/markt/Desktop/Git/Lea-SIP-Frontend/templates"
+REMOTE_DIR3="/home/pi/sprinklers/templates"
+
+SCRIPT_NAME="sprinklers.py"
+LOG_FILE="/home/pi/sprinklers/sprinklers.log"
+
+# Step 1: Push files
+echo ""
+echo "--------------------------------------------------"
+echo ""
+echo "📦 Syncing files to Raspberry Pi ($REMOTE_HOST)..."
+
+scp -r -p "$MARK_SCRIPT" "${REMOTE_USER}@${REMOTE_HOST}:${SCRIPT_DIR}"
+scp -r -p "$MARK_SCRIPT2" "${REMOTE_USER}@${REMOTE_HOST}:${SCRIPT_DIR}"
+scp -r -p "$MARK_SCRIPT3" "${REMOTE_USER}@${REMOTE_HOST}:${SCRIPT_DIR}"
+
+scp -r -p "$LOCAL_FILE" "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR1}"
+scp -r -p "$LOCAL_DIR2"/* "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR2}"
+scp -r -p "$LOCAL_DIR3"/* "${REMOTE_USER}@${REMOTE_HOST}:${REMOTE_DIR3}"
+
+# Step 2: Restart the Python script
+echo "♻️ Restarting $SCRIPT_NAME on Raspberry Pi ($REMOTE_HOST)..."
+
+ssh -o StrictHostKeyChecking=no "${REMOTE_USER}@${REMOTE_HOST}" << EOF
+  echo "🔍 Killing any existing $SCRIPT_NAME processes..."
+  pkill -f $SCRIPT_NAME || true
+  echo "🚀 Starting new $SCRIPT_NAME process in background..."
+  nohup python3 /home/pi/sprinklers/$SCRIPT_NAME > $LOG_FILE 2>&1 &
+  echo "✅ $SCRIPT_NAME restarted."
+EOF
+
+echo "✅ Push and restart completed for $REMOTE_HOST."
+
