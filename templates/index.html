@@ -291,7 +291,7 @@ function closeAlert() {
   document.getElementById('alertOverlay').style.display = 'none';
 }
 
-
+/*
 async function updateRainDelayButton() {
     const btn = document.getElementById('delayScheduleBtn');
     try {
@@ -305,6 +305,32 @@ async function updateRainDelayButton() {
     } catch (err) {
         console.error("Failed to fetch rain delay:", err);
         btn.textContent = "Add Rain Delay";
+    }
+}
+*/
+
+async function updateRainDelayButton() {
+    const delayBtn = document.getElementById('delayScheduleBtn');
+
+    try {
+        const res = await fetch('/current_rain_delay');
+        const data = await res.json();
+
+        if (data.success && data.hours > 0) {
+            // Convert hours to days + hours
+            const days = Math.floor(data.hours / 24);
+            const hours = Math.floor(data.hours % 24);
+            let text = "Rain Delay: ";
+            if (days > 0) text += `${days} day${days > 1 ? 's' : ''} `;
+            if (hours > 0) text += `${hours} hr${hours > 1 ? 's' : ''}`;
+            delayBtn.textContent = text.trim();
+        } else {
+            // No rain delay
+            delayBtn.textContent = "Add Rain Delay";
+        }
+    } catch (err) {
+        console.error("Failed to fetch rain delay:", err);
+        delayBtn.textContent = "Add Rain Delay";
     }
 }
 
