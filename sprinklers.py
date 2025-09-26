@@ -102,30 +102,59 @@ def index():
         title=TITLE
     )
 
+
+
+
 @app.route("/push_rain_delay", methods=["POST"])
 def push_rain_delay():
-    success = Push_Rain_Delay()
+    try:
+        data = request.get_json(force=True)
+        hours = int(data.get("hours", 24))  # default 24 if not provided
+    except Exception:
+        hours = 24
+
+    success = Push_Rain_Delay(hours)
     if success:
         return jsonify(success=True)
     else:
         return jsonify(success=False, error="SIP service not reachable or request failed")
 
 
-def Push_Rain_Delay():
-    """
-    Sends a 24-hour rain delay command to the sprinkler system.
-    Returns True if successful, False otherwise.
-    """
-    url = f"http://{SERVER_IP}/cv?rd=24"
+def Push_Rain_Delay(hours):
+    """Send rain delay to SIP system for given hours"""
+    url = f"http://{SERVER_IP}/cv?rd={hours}"
     try:
         response = requests.get(url, timeout=2)
-        response.raise_for_status()  # HTTP error → exception
-        print("✅ Rain delay command sent successfully.")
-        print("Response:", response.text)
+        response.raise_for_status()
+        print(f"✅ Rain delay command sent successfully: {hours} hours")
         return True
     except requests.exceptions.RequestException as e:
         print(f"❌ Failed to send rain delay command to {url}: {e}")
         return False
+
+
+@app.route("/current_rain_delay")
+def current_rain_delay():
+    """
+    Fetch the main page from SIP server and parse 'Rain delay time left:' value.
+    Returns the delay in hours as JSON. Returns { "success": true, "hours": 12 }
+    """
+    try:
+        url = f"http://{SERVER_IP}/"
+        resp = requests.get(url, timeout=2)
+        resp.raise_for_status()
+        html = resp.text
+
+        # Parse "Rain delay time left: X hr" using regex
+        match = re.search(r'Rain delay time left:\s*([0-9]+)', html, re.IGNORECASE)
+        if match:
+            hours = int(match.group(1))
+        else:
+            hours = 0
+
+        return jsonify(success=True, hours=hours)
+    except Exception as e:
+        return jsonify(success=False, hours=0, error=str(e))
 
 
 def Cancel_Rain_Delay():

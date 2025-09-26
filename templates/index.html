@@ -121,7 +121,7 @@ body.sip-banner-offset { padding-top: 100px; }
       cursor: pointer;
       transition: background-color 0.2s ease;
       margin-top: 10px;">
-    Delay 24hrs
+    Add Rain Delay
   </button>
 
   <!-- New Delay Schedule 24 hrs button -->
@@ -304,7 +304,31 @@ function closeAlert() {
 }
 
 
-  async function updateSIPButtonConditional() {
+async function updateRainDelayButton() {
+    const btn = document.getElementById('delayScheduleBtn');
+    try {
+        const res = await fetch('/current_rain_delay');
+        const data = await res.json();
+        if (data.success && data.hours > 0) {
+            btn.textContent = `Rain Delay: ${data.hours} hrs`;
+        } else {
+            btn.textContent = "Add Rain Delay";
+        }
+    } catch (err) {
+        console.error("Failed to fetch rain delay:", err);
+        btn.textContent = "Add Rain Delay";
+    }
+}
+
+// Initial update
+updateRainDelayButton();
+
+// Update every 60 seconds
+setInterval(updateRainDelayButton, 3 * 1000);
+
+
+
+async function updateSIPButtonConditional() {
     try {
       const zoneRes = await fetch('/status');
       const zones = await zoneRes.json();
@@ -312,6 +336,8 @@ function closeAlert() {
       const anyZoneRunning = Object.values(zones).some(zone => zone.remaining > 0);
       const container = document.getElementById('sipToggleContainer');
       const btn = document.getElementById('sipToggleBtn');
+      const delayBtn = document.getElementById('delayScheduleBtn');   // <— new
+      const resumeBtn = document.getElementById('resumeScheduleBtn');  // <— new
 
       if (anyZoneRunning) {
         container.style.display = 'none';
@@ -325,17 +351,26 @@ function closeAlert() {
         btn.textContent = 'Go Manual Mode';
         btn.style.backgroundColor = '#f8d7da';
         btn.style.borderColor = '#f5c6cb';
+
+        // Show rain delay buttons
+        delayBtn.style.display = 'inline-block';
+        resumeBtn.style.display = 'inline-block';
       } else {
-        btn.textContent = 'Go Automatic Mode'
+        btn.textContent = 'Resume Automatic Mode';
         btn.style.backgroundColor = '#d4edda';
         btn.style.borderColor = '#c3e6cb';
+
+        // Hide rain delay buttons
+        delayBtn.style.display = 'none';
+        resumeBtn.style.display = 'none';
       }
 
       container.style.display = 'block';
     } catch (err) {
       console.error('Failed to update SIP button:', err);
     }
-  }
+}
+
 
   document.getElementById('sipToggleBtn').addEventListener('click', async () => {
     try {
@@ -358,28 +393,45 @@ function closeAlert() {
   setInterval(updateSIPButtonConditional, 3000);
 
 
-document.getElementById('resumeScheduleBtn').addEventListener('click', async () => {
+// Delay watering for user-specified days
+document.getElementById('delayScheduleBtn').addEventListener('click', async () => {
     try {
-        const res = await fetch('/cancel_rain_delay', { method: 'POST' });
+        let days = prompt("How many days to delay watering?");
+        if (days === null) return;  // user cancelled
+        days = parseFloat(days);
+        if (isNaN(days) || days <= 0) {
+            alert("Please enter a valid positive number.");
+            return;
+        }
+
+        const hours = days * 24;
+
+        const res = await fetch('/push_rain_delay', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ hours: hours })
+        });
+
         const data = await res.json();
         if (data.success) {
-            alert("Rain delay canceled successfully.");
+            alert(`Rain delay set for ${days} day(s) (${hours} hours).`);
         } else {
-            alert("Failed to cancel rain delay: " + (data.error || 'Unknown error'));
+            alert("Failed to set rain delay: " + (data.error || 'Unknown error'));
         }
     } catch (err) {
         alert('Error communicating with server.');
     }
 });
 
-document.getElementById('delayScheduleBtn').addEventListener('click', async () => {
+// Cancel any rain delay
+document.getElementById('resumeScheduleBtn').addEventListener('click', async () => {
     try {
-        const res = await fetch('/push_rain_delay', { method: 'POST' });
+        const res = await fetch('/cancel_rain_delay', { method: 'POST' });
         const data = await res.json();
         if (data.success) {
-            alert("Rain delay pushed successfully.");
+            alert("Rain delay canceled. Watering resumed.");
         } else {
-            alert("Failed to push rain delay: " + (data.error || 'Unknown error'));
+            alert("Failed to cancel rain delay: " + (data.error || 'Unknown error'));
         }
     } catch (err) {
         alert('Error communicating with server.');
