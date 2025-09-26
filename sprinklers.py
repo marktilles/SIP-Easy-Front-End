@@ -104,59 +104,50 @@ def index():
 
 @app.route("/push_rain_delay", methods=["POST"])
 def push_rain_delay():
-    try:
-        # Call your backend logic for rain delay
-        # Example placeholder:
-        Push_Rain_Delay()  # this is your function you define below
-
+    success = Push_Rain_Delay()
+    if success:
         return jsonify(success=True)
-    except Exception as e:
-        return jsonify(success=False, error=str(e))
+    else:
+        return jsonify(success=False, error="SIP service not reachable or request failed")
 
 
 def Push_Rain_Delay():
     """
     Sends a 24-hour rain delay command to the sprinkler system.
+    Returns True if successful, False otherwise.
     """
+    url = f"http://{SERVER_IP}/cv?rd=24"
     try:
-        url = f"http://{SERVER_IP}/cv?rd=24"  # Construct the rain delay URL
-        response = requests.get(url, timeout=5)  # Send GET request
-        response.raise_for_status()  # Raise exception for HTTP errors
-
+        response = requests.get(url, timeout=2)
+        response.raise_for_status()  # HTTP error → exception
         print("✅ Rain delay command sent successfully.")
         print("Response:", response.text)
-
+        return True
     except requests.exceptions.RequestException as e:
-        print("❌ Failed to send rain delay command:", e)
+        print(f"❌ Failed to send rain delay command to {url}: {e}")
+        return False
+
+
+def Cancel_Rain_Delay():
+    url = f"http://{SERVER_IP}/cv?rd=0"
+    try:
+        response = requests.get(url, timeout=2)
+        response.raise_for_status()
+        print("✅ Rain delay cancel command sent successfully.")
+        print("Response:", response.text)
+        return True
+    except requests.exceptions.RequestException as e:
+        print(f"❌ Failed to cancel rain delay at {url}: {e}")
+        return False
 
 
 @app.route("/cancel_rain_delay", methods=["POST"])
 def cancel_rain_delay():
-    try:
-        # Call your backend logic for rain delay
-        # Example placeholder:
-        Cancel_Rain_Delay()  # this is your function you define below
-
+    success = Cancel_Rain_Delay()
+    if success:
         return jsonify(success=True)
-    except Exception as e:
-        return jsonify(success=False, error=str(e))
-
-
-def Cancel_Rain_Delay():
-    """
-    Sends a rain delay ciancel command to the sprinkler system.
-    """
-    try:
-        url = f"http://{SERVER_IP}/cv?rd=0"  # Construct the rain delay URL
-        response = requests.get(url, timeout=5)  # Send GET request
-        response.raise_for_status()  # Raise exception for HTTP errors
-
-        print("✅ Rain delay cancel command sent successfully.")
-        print("Response:", response.text)
-
-    except requests.exceptions.RequestException as e:
-        print("❌ Failed to send rain delay cancel command:", e)
-
+    else:
+        return jsonify(success=False, error="SIP service not reachable or request failed")
 
 
 @app.route("/active_zones")
@@ -275,7 +266,7 @@ def stop_all():
 def view_schedules():
     try:
         remote_url = f"http://{SERVER_IP}/vp"
-        resp = requests.get(remote_url, timeout=5)
+        resp = requests.get(remote_url, timeout=2)
         resp.raise_for_status()
 
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -351,7 +342,7 @@ def view_schedules():
 @app.route('/view-log')
 def view_log():
     try:
-        response = requests.get(f"http://{SERVER_IP}/vl", timeout=5)
+        response = requests.get(f"http://{SERVER_IP}/vl", timeout=2)
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, 'html.parser')
