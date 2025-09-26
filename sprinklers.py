@@ -102,6 +102,27 @@ def index():
         title=TITLE
     )
 
+@app.route("/push_rain_delay", methods=["POST"])
+def push_rain_delay():
+    try:
+        # Call your backend logic for rain delay
+        # Example placeholder:
+        Push_Rain_Delay()  # this is your function you define below
+
+        return jsonify(success=True)
+    except Exception as e:
+        return jsonify(success=False, error=str(e))
+
+def Push_Rain_Delay():
+    """
+    Placeholder function to push a rain delay.
+    Add your actual logic here to tell the sprinkler system
+    to delay the schedule for 24 hours.
+    """
+    print("Push_Rain_Delay called: delaying schedule...")
+    # Example: adjust timers, call SIP, etc.
+    # e.g., requests.post(f"http://{SERVER_IP}/set_rain_delay", data={"hours": 24})
+
 
 @app.route("/active_zones")
 def active_zones():

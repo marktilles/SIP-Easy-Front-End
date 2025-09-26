@@ -345,6 +345,21 @@ function closeAlert() {
   setInterval(updateSIPButtonConditional, 3000);
 
 
+document.getElementById('delayScheduleBtn').addEventListener('click', async () => {
+    try {
+        const res = await fetch('/push_rain_delay', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            alert("Rain delay pushed successfully.");
+        } else {
+            alert("Failed to push rain delay: " + (data.error || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Error communicating with server.');
+    }
+});
+
+
 function verifySIPAccess() {
   const pass = prompt("Enter SIP password (hint: Password):");
   if (pass === "Password") {
