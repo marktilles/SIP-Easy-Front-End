@@ -121,7 +121,20 @@ body.sip-banner-offset { padding-top: 100px; }
       cursor: pointer;
       transition: background-color 0.2s ease;
       margin-top: 10px;">
-    Delay Schedule 24 hrs
+    Delay 24hrs
+  </button>
+
+  <!-- New Delay Schedule 24 hrs button -->
+  <button id="resumeScheduleBtn" style="
+      padding: 8px 16px;
+      font-size: 40px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      background-color: #eee;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      margin-top: 10px;">
+    Resume
   </button>
 
 </div>
@@ -344,6 +357,20 @@ function closeAlert() {
   // Auto-refresh every 5 seconds
   setInterval(updateSIPButtonConditional, 3000);
 
+
+document.getElementById('resumeScheduleBtn').addEventListener('click', async () => {
+    try {
+        const res = await fetch('/cancel_rain_delay', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+            alert("Rain delay canceled successfully.");
+        } else {
+            alert("Failed to cancel rain delay: " + (data.error || 'Unknown error'));
+        }
+    } catch (err) {
+        alert('Error communicating with server.');
+    }
+});
 
 document.getElementById('delayScheduleBtn').addEventListener('click', async () => {
     try {

@@ -130,6 +130,35 @@ def Push_Rain_Delay():
         print("❌ Failed to send rain delay command:", e)
 
 
+@app.route("/cancel_rain_delay", methods=["POST"])
+def cancel_rain_delay():
+    try:
+        # Call your backend logic for rain delay
+        # Example placeholder:
+        Cancel_Rain_Delay()  # this is your function you define below
+
+        return jsonify(success=True)
+    except Exception as e:
+        return jsonify(success=False, error=str(e))
+
+
+def Cancel_Rain_Delay():
+    """
+    Sends a rain delay ciancel command to the sprinkler system.
+    """
+    try:
+        url = f"http://{SERVER_IP}/cv?rd=0"  # Construct the rain delay URL
+        response = requests.get(url, timeout=5)  # Send GET request
+        response.raise_for_status()  # Raise exception for HTTP errors
+
+        print("✅ Rain delay cancel command sent successfully.")
+        print("Response:", response.text)
+
+    except requests.exceptions.RequestException as e:
+        print("❌ Failed to send rain delay cancel command:", e)
+
+
+
 @app.route("/active_zones")
 def active_zones():
     try:
