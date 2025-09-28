@@ -472,13 +472,21 @@ function checkSIPStatusAndToggleButton() {
       // show the links
       options.style.display = "block";
 
-      // existing code that builds the green “Enabled” label
-      let zoneText = "";
-      if (zones.active && zones.zones && zones.zones.length > 0) {
-      const names = zones.zones.map(id => zones.nicknames?.[id] || `Zone ${id}`);
-      zoneText = "<br><font color='red'>and currently running zone(s): " +
-             names.join(", ");
-      }
+// existing code that builds the green “Enabled” label
+let zoneText = "";
+if (zones.active && zones.zones && zones.zones.length > 0) {
+    const names = zones.zones
+        .filter(id => zones.nicknames?.[id]?.toUpperCase() !== "MASTER") // skip MASTER completely
+        .map(id => zones.nicknames?.[id])                                // only use nickname
+        .filter(name => name && name.trim() !== "");                     // ignore blanks/nulls
+
+    if (names.length > 0) {
+        zoneText = "<br><font color='red'>and currently running zone(s): " +
+                   names.join(", ");
+    }
+}
+
+
       label.innerHTML =
         `<a href="#" onclick="verifySIPAccess()"
             style="color: green; text-decoration: none;">
