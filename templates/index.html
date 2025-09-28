@@ -41,14 +41,17 @@ if ("serviceWorker" in navigator) {
       font-size: 40px;
       cursor: pointer;
     }
-    .zone-btn { background-color: grey; color: white; }
-    .zone-btn.selected { border: 8px solid red; background-color: grey; color: white; }
-    .zone-btn.active { background-color: green; color: white; }
+
+    .zone-btn                 { background-color: lightblue; color: black; }
+    .zone-btn.selected        { border: 8px solid red; background-color: lightblue; color: black; }
+    .zone-btn.active          { background-color: green; color: white; }
     .zone-btn.selected.active { border: 8px solid red; }
-    .duration-btn { background-color: lightblue; color: black }
-    .duration-btn.active { background-color: yellow; color: black; }
-    .start-custom { background-color: lightgrey; color: black; }
-    .stop-btn { background-color: red; color: white; font-weight: bold; }
+
+    .duration-btn             { background-color: lightgrey; color: black }
+    .duration-btn.active      { border: 8px solid red; background-color: lightgrey; color: black; }
+    .start-custom             { background-color: lightgrey; color: black; }
+
+    .stop-btn                 { background-color: red; color: white; font-weight: bold; }
 
    #sip-status-label {
      margin-top: 10px;
@@ -176,7 +179,7 @@ body.sip-banner-offset { padding-top: 100px; }
 <!-- SIP options with overlay trigger -->
 <div id="sip-options" style="display:none;font-size: 40px;">
   <br/>
-  <a href="#" onclick="openOverlay('{{ url_for('view_log') }}'); return false;">View Log Table</a>
+  <a href="#" onclick="openOverlay('{{ url_for('view_log') }}'); return false;">View Log</a>
   <br/><br/>
   <a href="#" onclick="openOverlay('{{ url_for('view_schedules') }}'); return false;">View Schedules</a>
 </div>
@@ -365,6 +368,20 @@ async function updateSIPButtonConditional() {
         btn.style.backgroundColor = '#f8d7da';
         btn.style.borderColor = '#f5c6cb';
 
+// Misters button no longer auto-starts
+document.addEventListener('DOMContentLoaded', () => {
+  const mistersBtn = Array.from(document.querySelectorAll('.zone-btn'))
+    .find(btn => btn.textContent.trim().toLowerCase() === 'misters');
+
+  if (mistersBtn) {
+    mistersBtn.addEventListener('click', () => {
+      console.log('Misters button clicked, but automatic start is disabled.');
+      // You can optionally show an alert or just select the zone without starting
+      selectedZone = mistersBtn.dataset.zone;
+      updateZoneButtons(window.currentStatus || {});
+    });
+  }
+});
         // Show rain delay buttons
         delayBtn.style.display = 'inline-block';
       } else {
@@ -481,7 +498,7 @@ if (zones.active && zones.zones && zones.zones.length > 0) {
         .filter(name => name && name.trim() !== "");                     // ignore blanks/nulls
 
     if (names.length > 0) {
-        zoneText = "<br><font color='red'>and currently running zone(s): " +
+        zoneText = "<br><font color='red'>and running zone(s): " +
                    names.join(", ");
     }
 }
@@ -490,7 +507,7 @@ if (zones.active && zones.zones && zones.zones.length > 0) {
       label.innerHTML =
         `<a href="#" onclick="verifySIPAccess()"
             style="color: green; text-decoration: none;">
-            Automatic Sprinklers: Enabled${zoneText}
+            Sprinkler system on automatic${zoneText}
          </a>`;
     } else {
       // hide the links
@@ -672,32 +689,5 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 
-document.addEventListener('DOMContentLoaded', () => {
-  const mistersBtn = Array.from(document.querySelectorAll('.zone-btn'))
-    .find(btn => btn.textContent.trim().toLowerCase() === 'misters');
 
-  if (mistersBtn) {
-    mistersBtn.addEventListener('click', () => {
-      const zoneId = mistersBtn.dataset.zone;
-      if (!zoneId) {
-        console.error('Misters button missing data-zone attribute');
-        return;
-      }
-      fetch('/start_zone', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ zone: parseInt(zoneId, 10), duration: 1800 })
-      })
-      .then(res => res.json())
-      .then(json => {
-        if (!json.success) {
-          console.error('Failed to start Misters:', json.error || json);
-        } else {
-          console.log('Misters started for 30 seconds');
-        }
-      })
-      .catch(err => console.error('Error starting Misters:', err));
-    });
-  }
-});
 </script>
