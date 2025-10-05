@@ -179,9 +179,11 @@ body.sip-banner-offset { padding-top: 100px; }
 <!-- SIP options with overlay trigger -->
 <div id="sip-options" style="display:none;font-size: 40px;">
   <br/>
-  <a href="#" onclick="openOverlay('{{ url_for('view_log') }}'); return false;">View Log</a>
+  <a href="#" onclick="openOverlay('{{ url_for('view_log') }}'); return false;">View History</a>
   <br/><br/>
   <a href="#" onclick="openOverlay('{{ url_for('view_schedules') }}'); return false;">View Schedules</a>
+  <br/><br/>
+  <a href="#" onclick="verifySIPAccess(); return false;">Access Background Irrigation Program</a>
 </div>
 
 <!-- Overlay container -->
@@ -222,8 +224,7 @@ body.sip-banner-offset { padding-top: 100px; }
 
 <footer>
 <br/>
-<br/>
-<font size="4">{{ title }} v{{ version }}<br/>{{ server_ip }}</font>
+{{ title }} v{{ version }}, {{ server_ip }}
 </footer>
 
 <div id="upload-container" style="margin-top: 60px; text-align: center; display: none;">
@@ -505,10 +506,9 @@ if (zones.active && zones.zones && zones.zones.length > 0) {
 
 
       label.innerHTML =
-        `<a href="#" onclick="verifySIPAccess()"
-            style="color: green; text-decoration: none;">
-            Sprinkler system on automatic${zoneText}
-         </a>`;
+        `<a style="color: green; text-decoration: none;">
+            Sprinkler system is on automatic${zoneText} </a><br><br>`;
+
     } else {
       // hide the links
       options.style.display = "none";
