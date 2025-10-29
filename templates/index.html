@@ -99,6 +99,19 @@ body.sip-banner-offset { padding-top: 100px; }
   font-size: 40px !important;
   padding: 10px 20px !important;
 }
+
+/* Match STOP ALL button style */
+.active-zone-text {
+    color: red;           /* text color same as stop button */
+    background-color: black;  /* match stop button background */
+    font-weight: bold;
+    border-radius: 25px;
+    padding: 5px 12px;
+    display: inline-block;  /* ensures block appearance with padding */
+    margin: 2px 0;
+    font-size: 40px;
+}
+
 </style>
 </head>
 <div id="sipToggleContainer" style="text-align: center; margin-top: 40px; display: none;">
@@ -637,7 +650,7 @@ function updateTimers() {
       if (data[id].remaining > 0) {
         let m = Math.floor(data[id].remaining / 60);
         let s = data[id].remaining % 60;
-        html += `${data[id].nickname} — ${m}m ${s}s<br>`;
+        html += `<span class="active-zone-text">${data[id].nickname} — ${m}m ${s}s</span><br>`;
         anyZoneRunning = true;
       }
     }
