@@ -87,6 +87,37 @@ def initialize_gpio():
     gpio_initialized = True
     print("GPIO system re-initialized.")
 
+def manual_watering_complete():
+    """
+    Cleanup GPIO and restart SIP service after manual watering finishes.
+    """
+    global gpio_initialized, has_user_activated_zone
+
+    print("Manual watering complete. Releasing GPIO and restarting SIP service...")
+
+    # Turn off MASTER zone safely
+    if 8 in ZONE_CONFIG:
+        try:
+            gpio_off(8)
+        except Exception:
+            pass
+
+    # Cleanup GPIO
+    try:
+        GPIO.cleanup()
+        gpio_initialized = False
+        has_user_activated_zone = False
+        time.sleep(1.0)  # ensure GPIO fully releases
+
+        # Restart SIP service
+        try:
+            start_sip_service()
+            print("✅ SIP service restarted successfully after manual watering.")
+        except Exception as e:
+            print("❌ Auto-restart SIP failed:", e)
+
+    except Exception as e:
+        print("❌ GPIO cleanup failed:", e)
 
 
 
@@ -275,15 +306,22 @@ def stop_all():
             for zid in ZONE_CONFIG:
                 gpio_off(zid)
             zone_timers.clear()
+           # Reuse manual watering completion
+            manual_watering_complete()
             GPIO.cleanup()
             gpio_initialized = False
             has_user_activated_zone = False
 
-        time.sleep(1.0)  # Let GPIOs fully release
+        # Delay to ensure GPIO is truly released
+        time.sleep(1.0)
 
-        # Restart SIP scheduler
-        #start_sip_service()
-        #print("SIP scheduler restarted after manual stop.")
+        # Restart SIP service after manual watering completes
+        try:
+            print("Restarting SIP service after manual watering...")
+            start_sip_service()
+            print("✅ SIP service restarted successfully.")
+        except Exception as e:
+            print("❌ Auto-restart SIP failed:", e)
 
         return jsonify(success=True)
     except Exception as e:
@@ -487,22 +525,9 @@ def countdown_loop():
                     else:
                         gpio_off(8)
 
-                    # Auto-release & restart logic
-                    if len(zone_timers) == 0 and GPIO.input(ZONE_CONFIG[8]["gpio"]) == GPIO.LOW:
-                        print("All zones complete. Releasing GPIO and restarting scheduler.")
-
-                        GPIO.cleanup()
-                        gpio_initialized = False
-                        has_user_activated_zone = False
-
-                        # Delay to ensure GPIO is truly released
-                        time.sleep(1.0)
-
-                        # Restart SIP service
-                        #try:
-                            #start_sip_service()
-                        #except Exception as e:
-                            #print("Auto-restart SIP failed:", e)
+                    # Trigger SIP restart if all zones complete
+                    if len(zone_timers) == 0:
+                        manual_watering_complete()
 
         except Exception as loop_error:
             print("Error in countdown loop:", loop_error)
