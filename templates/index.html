@@ -34,7 +34,7 @@ if ("serviceWorker" in navigator) {
       margin-bottom: 20px;
       border-radius: 12px;
     }
-    .zone-btn, .duration-btn, .stop-btn, .start-custom {
+    .zone-btn, .stop-btn, .start-custom {
       border-radius: 25px;
       padding: 10px 20px;
       margin: 5px;
@@ -47,8 +47,6 @@ if ("serviceWorker" in navigator) {
     .zone-btn.active          { background-color: green; color: white; }
     .zone-btn.selected.active { border: 8px solid red; }
 
-    .duration-btn             { background-color: lightgrey; color: black }
-    .duration-btn.active      { border: 8px solid red; background-color: lightgrey; color: black; }
     .start-custom             { background-color: lightgrey; color: black; }
 
     .stop-btn                 { background-color: red; color: white; font-weight: bold; }
@@ -68,14 +66,6 @@ if ("serviceWorker" in navigator) {
      text-decoration: none;
    }
   
-/* Double size for Misters button */
-/*.misters-boost {
-  font-size: 80px !important;
-  padding: 20px 40px !important;
-  border-radius: 40px !important;
-}
-*/
-
 /* SIP not running banner */
 @keyframes sipBlink { 0%{opacity:1;} 50%{opacity:0.25;} 100%{opacity:1;} }
 #sip-alert-banner {
@@ -95,7 +85,7 @@ if ("serviceWorker" in navigator) {
 }
 body.sip-banner-offset { padding-top: 100px; }
 
-.start-custom.big-start {
+.start-custom {
   font-size: 40px !important;
   padding: 10px 20px !important;
 }
@@ -160,22 +150,10 @@ body.sip-banner-offset { padding-top: 100px; }
       <button class="zone-btn" data-zone="{{ id }}">{{ zone.nickname }}</button>
     {% endif %}
   {% endfor %}
-</div>
 <!-- 👇 Added extra linefeed here -->
 <br/>
-<div>
-<button class="duration-btn" data-min="8">8 min</button>
-<button class="duration-btn" data-min="10">10 min</button>
-<button class="duration-btn" data-min="15">15 min</button>
-</div>
-<div>
-
-<br/>
-<font size="40">or
-<br/>
-
-<input id="custom-min" max="999" placeholder="Min" style="width: 5ch; text-align: center; font-size: 40px; border-radius: 25px; padding: 10px 20px; margin: 5px;" type="number" value="{{ default_duration }}"/>
-<button class="start-custom big-start big-start" style="margin-top: 20px; margin-top: 20px;">Duration</button>
+<input id="custom-min" max="999" placeholder="Min" style="width: 4ch; text-align: center; font-size: 40px; border-radius: 25px; padding: 10px 20px; margin: 5px;" type="number" value="{{ default_duration }}"/>
+<font size="40">mins</font> <button class="start-custom" style="margin-top: 20px; margin-top: 20px;">Start</button>
 </div>
 
 <br/><br/>
@@ -192,11 +170,7 @@ body.sip-banner-offset { padding-top: 100px; }
 <!-- SIP options with overlay trigger -->
 <div id="sip-options" style="display:none;font-size: 40px;">
   <br/>
-  <a href="#" onclick="openOverlay('{{ url_for('view_log') }}'); return false;">View History</a>
-  <br/><br/>
-  <a href="#" onclick="openOverlay('{{ url_for('view_schedules') }}'); return false;">View Schedules</a>
-  <br/><br/>
-  <a href="#" onclick="verifySIPAccess(); return false;">Access Background Irrigation Program</a>
+ <a href="#" onclick="openOverlay('{{ url_for('view_schedules') }}'); return false;">Schedule</a> | <a href="#" onclick="openOverlay('{{ url_for('view_log') }}'); return false;">History</a> |  <a href="#" onclick="verifySIPAccess(); return false;">Open SIP Program</a>
 </div>
 
 <!-- Overlay container -->
@@ -520,7 +494,7 @@ if (zones.active && zones.zones && zones.zones.length > 0) {
 
       label.innerHTML =
         `<a style="color: green; text-decoration: none;">
-            Sprinkler system is on automatic${zoneText} </a><br><br>`;
+            Sprinkler System is on Automatic${zoneText} </a><br><br>`;
 
     } else {
       // hide the links
@@ -608,20 +582,6 @@ document.querySelectorAll('.zone-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     selectedZone = btn.dataset.zone;
     updateZoneButtons(window.currentStatus || {});
-  });
-});
-
-document.querySelectorAll('.duration-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (!selectedZone) return showAlert("Missing Zone Selection", "Please select a zone before starting a timer.");
-    let minutes = parseInt(btn.dataset.min);
-    btn.classList.add("active");
-    setTimeout(() => btn.classList.remove("active"), 1000);
-    fetch('/start_zone', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ zone: selectedZone, duration: minutes * 60 })
-    });
   });
 });
 
