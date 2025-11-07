@@ -418,7 +418,29 @@ def view_log():
         if not tables:
             return "No table data found on the page.", 404
 
-        table_html = ''.join(str(table) for table in tables)
+        processed_tables = []
+
+        for table in tables:
+            # Find headers (first row)
+            header_row = table.find('tr')
+            skip_indexes = []
+            if header_row:
+                headers = header_row.find_all(['th', 'td'])
+                for i, th in enumerate(headers):
+                    if 'ADJUSTMENT' in th.get_text(strip=True).upper():
+                        skip_indexes.append(i)
+
+            # Rebuild table HTML without skipped columns
+            new_rows = []
+            for row in table.find_all('tr'):
+                cells = row.find_all(['th', 'td'])
+                new_row_html = ''.join(str(cells[i]) for i in range(len(cells)) if i not in skip_indexes)
+                new_rows.append(f"<tr>{new_row_html}</tr>")
+
+            new_table_html = f"<table>{''.join(new_rows)}</table>"
+            processed_tables.append(new_table_html)
+
+        table_html = ''.join(processed_tables)
 
         return render_template_string(f"""
             <html>
