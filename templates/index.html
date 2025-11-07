@@ -452,7 +452,7 @@ document.getElementById('delayScheduleBtn').addEventListener('click', async () =
 
 
 function verifySIPAccess() {
-  const pass = prompt("Enter SIP password (hint: Password):");
+  const pass = prompt("Enter SIP password:\n(hint: pass=Password)");
   if (pass === "Password") {
     const url = "http://{{ server_ip }}";  // Ensure this renders as a proper IP like 192.168.4.225
     window.open(url, "_self");  // Open in the same tab

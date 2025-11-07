@@ -396,7 +396,7 @@ def view_schedules():
                 </style>
             </head>
             <body>
-                <h2>Sprinkler Program Schedules</h2>
+                <h2>Current Sprinkler Schedule</h2>Select \"Open SIP Program\" to modify<hr>
                 {content_html}
             </body>
             </html>
@@ -443,7 +443,7 @@ def view_log():
                 </style>
             </head>
             <body>
-                <h2>Sprinkler Log Table Data</h2>
+                <h2>Sprinkler Log</h2>
                 {table_html}
             </body>
             </html>
