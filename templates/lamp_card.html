@@ -1,0 +1,121 @@
+<!-- Lamp schedule card (pulled into index.html by an include) -->
+<style>
+  #lamp-card { margin: 50px auto 30px; font-size: 40px; text-align: center; }
+  #lamp-card h3 { font-size: 40px; margin: 0 0 15px; }
+  #lamp-card .lamp-row { margin: 12px 0; }
+  #lamp-card .lamp-row label { cursor: pointer; }
+  #lamp-card input[type="number"],
+  #lamp-card input[type="time"] {
+    font-size: 40px; border-radius: 25px; padding: 10px 20px; margin: 5px;
+    text-align: center; border: 1px solid #767676;
+  }
+  #lamp-card input[type="number"] { width: 4ch; }
+  #lamp-card input[type="radio"] { transform: scale(2); margin: 0 18px 0 10px; }
+  #lamp-card #lamp-icon { display: inline-block; }
+  @keyframes lamp-blink { 0%, 50%, 100% { opacity: 1; } 25%, 75% { opacity: 0; } }
+  #lamp-card #lamp-icon.on { animation: lamp-blink 1s infinite; }
+  #lamp-card #lamp-msg { font-size: 30px; margin-top: 8px; min-height: 40px; }
+</style>
+
+<div id="lamp-card">
+  <h3>Garden Lighting (Sprinkler relay zone #7)</h3>
+
+  <div class="lamp-row">Sunset: <span id="lamp-sunset" style="color:#2196F3">--</span></div>
+  <div class="lamp-row">Turn-on: <span id="lamp-turn-on" style="color:#2196F3">--</span></div>
+
+  <div class="lamp-row" style="font-weight:bold;">
+    <span id="lamp-icon">&#128161;</span>
+    <span id="lamp-text">Off</span>
+  </div>
+
+  <div class="lamp-row">
+    <label>
+      <input type="radio" name="lamp-mode" value="sunset">Turn on
+      <input id="lamp-offset" type="number" min="0"/>
+      mins after sunset
+    </label>
+  </div>
+
+  <div class="lamp-row">
+    <label>
+      <input type="radio" name="lamp-mode" value="fixed">or, always at
+      <input id="lamp-fixed" type="time"/>
+    </label>
+  </div>
+
+  <div class="lamp-row">
+    <label>Always turn off at
+      <input id="lamp-off" type="time"/>
+    </label>
+  </div>
+
+  <button type="button" class="start-custom" onclick="saveLampSchedule()">Update Lamp Schedule</button>
+  <div id="lamp-msg"></div>
+</div>
+
+<script>
+(function () {
+  function to12h(t24) {
+    if (!t24) return "--";
+    var p = t24.split(":").map(Number);
+    var h = p[0], m = p[1];
+    var ap = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    return h + ":" + String(m).padStart(2, "0") + " " + ap;
+  }
+
+  var formLoaded = false;   // fill the form once so polling never overwrites edits
+
+  function applyStatus(d) {
+    document.getElementById("lamp-sunset").textContent = to12h(d.sunset);
+    document.getElementById("lamp-turn-on").textContent = to12h(d.turn_on);
+
+    var icon = document.getElementById("lamp-icon");
+    var text = document.getElementById("lamp-text");
+    icon.classList.toggle("on", !!d.lamp_on);
+    icon.style.opacity = d.lamp_on ? "" : "0.3";
+    icon.style.filter = d.lamp_on ? "" : "grayscale(1)";
+    text.textContent = d.lamp_on ? "On" : "Off";
+    text.style.color = d.lamp_on ? "#4CAF50" : "#F44336";
+
+    if (!formLoaded && d.schedule) {
+      var s = d.schedule;
+      document.querySelector('input[name="lamp-mode"][value="' + s.mode + '"]').checked = true;
+      document.getElementById("lamp-offset").value = s.offset_minutes;
+      document.getElementById("lamp-fixed").value = s.fixed_on_time;
+      document.getElementById("lamp-off").value = s.off_time;
+      formLoaded = true;
+    }
+  }
+
+  function pollLamp() {
+    fetch("/lamp/status").then(function (r) { return r.json(); }).then(applyStatus).catch(console.error);
+  }
+
+  window.saveLampSchedule = function () {
+    var body = {
+      mode: document.querySelector('input[name="lamp-mode"]:checked').value,
+      offset_minutes: document.getElementById("lamp-offset").value,
+      fixed_on_time: document.getElementById("lamp-fixed").value,
+      off_time: document.getElementById("lamp-off").value
+    };
+    fetch("/lamp/schedule", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        var msg = document.getElementById("lamp-msg");
+        msg.textContent = d.success ? "Saved" : "Failed: " + (d.error || "");
+        msg.style.color = d.success ? "#4CAF50" : "#F44336";
+        if (d.success) { formLoaded = false; applyStatus(d); }
+        setTimeout(function () { msg.textContent = ""; }, 3000);
+      })
+      .catch(console.error);
+  };
+
+  pollLamp();
+  setInterval(pollLamp, 5000);
+})();
+</script>
