@@ -43,7 +43,6 @@ for zone in ZONE_CONFIG.values():
 # Globals
 app = Flask(__name__)
 
-
 from lamp_bp import lamp_bp
 app.register_blueprint(lamp_bp)
 
@@ -92,6 +91,37 @@ def initialize_gpio():
     gpio_initialized = True
     print("GPIO system re-initialized.")
 
+def manual_watering_complete():
+    """
+    Cleanup GPIO and restart SIP service after manual watering finishes.
+    """
+    global gpio_initialized, has_user_activated_zone
+
+    print("Manual watering complete. Releasing GPIO and restarting SIP service...")
+
+    # Turn off MASTER zone safely
+    if 8 in ZONE_CONFIG:
+        try:
+            gpio_off(8)
+        except Exception:
+            pass
+
+    # Cleanup GPIO
+    try:
+        GPIO.cleanup()
+        gpio_initialized = False
+        has_user_activated_zone = False
+        time.sleep(1.0)  # ensure GPIO fully releases
+
+        # Restart SIP service
+        try:
+            start_sip_service()
+            print("✅ SIP service restarted successfully after manual watering.")
+        except Exception as e:
+            print("❌ Auto-restart SIP failed:", e)
+
+    except Exception as e:
+        print("❌ GPIO cleanup failed:", e)
 
 
 
@@ -280,15 +310,22 @@ def stop_all():
             for zid in ZONE_CONFIG:
                 gpio_off(zid)
             zone_timers.clear()
+           # Reuse manual watering completion
+            manual_watering_complete()
             GPIO.cleanup()
             gpio_initialized = False
             has_user_activated_zone = False
 
-        time.sleep(1.0)  # Let GPIOs fully release
+        # Delay to ensure GPIO is truly released
+        time.sleep(1.0)
 
-        # Restart SIP scheduler
-        #start_sip_service()
-        #print("SIP scheduler restarted after manual stop.")
+        # Restart SIP service after manual watering completes
+        try:
+            print("Restarting SIP service after manual watering...")
+            start_sip_service()
+            print("✅ SIP service restarted successfully.")
+        except Exception as e:
+            print("❌ Auto-restart SIP failed:", e)
 
         return jsonify(success=True)
     except Exception as e:
@@ -363,7 +400,7 @@ def view_schedules():
                 </style>
             </head>
             <body>
-                <h2>Sprinkler Program Schedules</h2>
+                <h2>Current Sprinkler Schedule</h2>Select \"Open SIP Program\" to modify<hr>
                 {content_html}
             </body>
             </html>
@@ -385,7 +422,29 @@ def view_log():
         if not tables:
             return "No table data found on the page.", 404
 
-        table_html = ''.join(str(table) for table in tables)
+        processed_tables = []
+
+        for table in tables:
+            # Find headers (first row)
+            header_row = table.find('tr')
+            skip_indexes = []
+            if header_row:
+                headers = header_row.find_all(['th', 'td'])
+                for i, th in enumerate(headers):
+                    if 'ADJUSTMENT' in th.get_text(strip=True).upper():
+                        skip_indexes.append(i)
+
+            # Rebuild table HTML without skipped columns
+            new_rows = []
+            for row in table.find_all('tr'):
+                cells = row.find_all(['th', 'td'])
+                new_row_html = ''.join(str(cells[i]) for i in range(len(cells)) if i not in skip_indexes)
+                new_rows.append(f"<tr>{new_row_html}</tr>")
+
+            new_table_html = f"<table>{''.join(new_rows)}</table>"
+            processed_tables.append(new_table_html)
+
+        table_html = ''.join(processed_tables)
 
         return render_template_string(f"""
             <html>
@@ -410,7 +469,7 @@ def view_log():
                 </style>
             </head>
             <body>
-                <h2>Sprinkler Log Table Data</h2>
+                <h2>Sprinkler Log</h2>
                 {table_html}
             </body>
             </html>
@@ -492,22 +551,9 @@ def countdown_loop():
                     else:
                         gpio_off(8)
 
-                    # Auto-release & restart logic
-                    if len(zone_timers) == 0 and GPIO.input(ZONE_CONFIG[8]["gpio"]) == GPIO.LOW:
-                        print("All zones complete. Releasing GPIO and restarting scheduler.")
-
-                        GPIO.cleanup()
-                        gpio_initialized = False
-                        has_user_activated_zone = False
-
-                        # Delay to ensure GPIO is truly released
-                        time.sleep(1.0)
-
-                        # Restart SIP service
-                        #try:
-                            #start_sip_service()
-                        #except Exception as e:
-                            #print("Auto-restart SIP failed:", e)
+                    # Trigger SIP restart if all zones complete
+                    if len(zone_timers) == 0:
+                        manual_watering_complete()
 
         except Exception as loop_error:
             print("Error in countdown loop:", loop_error)
