@@ -140,11 +140,20 @@ try:
                 # Normal same-day schedule
                 lamp_should_be_on = turn_on <= now < turn_off
 
-            # --- Apply output state (only act/log on an actual change) ---
+#            # --- Apply output state (only act/log on an actual change) ---
+#            if lamp_should_be_on != last_state:
+#                GPIO.output(GPIO_PIN, GPIO.HIGH if lamp_should_be_on else GPIO.LOW)
+#                logger.info(f"Lamp {'ON' if lamp_should_be_on else 'OFF'}")
+#                last_state = lamp_should_be_on
+
+#           --- Apply output state: re-assert EVERY tick so SIP / sprinklers.py
+            # can't leave the lamp wrong. Log only on an actual change. ---
+            GPIO.setup(GPIO_PIN, GPIO.OUT)   # re-claim pin in case another process released it
+            GPIO.output(GPIO_PIN, GPIO.HIGH if lamp_should_be_on else GPIO.LOW)
             if lamp_should_be_on != last_state:
-                GPIO.output(GPIO_PIN, GPIO.HIGH if lamp_should_be_on else GPIO.LOW)
                 logger.info(f"Lamp {'ON' if lamp_should_be_on else 'OFF'}")
                 last_state = lamp_should_be_on
+
 
             time.sleep(0.5)  # short sleep for fast reaction
 
